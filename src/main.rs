@@ -1,11 +1,5 @@
-mod work_queue;
-use crate::work_queue::work_queue::Queue;
-
-mod work_loader;
-use table::table::Table;
-use work_loader::work_loader::WorkLoader;
-
-mod table;
+mod dataframe;
+use dataframe::dataframe::Dataframe;
 
 
 fn main() {
@@ -14,43 +8,45 @@ fn main() {
 
 
 fn worker(){
-    let mut queue:Queue = Queue::new();
 
-    let loader:WorkLoader = WorkLoader{};
 
-    loader.load_work(&mut queue);
+    let mut dataframe:Dataframe = Dataframe::read_from_csv("deniro.csv").unwrap();
 
-    let mut table:Table = Table::new(3);
+    dataframe.print_field("Score");
 
-    table.push(vec![String::from("Anargyros1"),String::from("Kwstantina1"),String::from("Xristina1")]);
-    table.push(vec![String::from("Anargyros2"),String::from("Kwstantina2"),String::from("Xristina2")]);
-    table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3")]);
-    table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3")]);
-    table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3")]);
-    table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3")]);
-    table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3")]);
-    table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3")]);
-    table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3")]);
+
+    // let mut queue:Queue = Queue::new();
+
+    // let loader:WorkLoader = WorkLoader{};
+
+    // loader.load_work(&mut queue);
+
+    // let mut table:Table = Table::new(4);
+
+    // table.push(vec![String::from("Anargyros1"),String::from("Kwstantina1"),String::from("Xristina1"),String::from("1")]);
+    // table.push(vec![String::from("Anargyros2"),String::from("Kwstantina2"),String::from("Xristina2"),String::from("2")]);
+    // table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3"),String::from("3")]);
+    // table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3"),String::from("1")]);
+    // table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3"),String::from("2")]);
+    // table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3"),String::from("3")]);
+    // table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3"),String::from("1")]);
+    // table.push(vec![String::from("Anargyros3"),String::from("Kwstantina3"),String::from("Xristina3"),String::from("2")]);
+    // table.push(vec![String::from("Anargyros2"),String::from("Kwstantina3"),String::from("Xristina3"),String::from("3")]);
     
-    println!("==============================");
-    table.print();
+    // println!("==============================");
+    // table.print();
+    // println!("==============================");
 
+    // let intermediate = table.filter_numerical(3, FilterOpcodes::Equal, 3);
+    // table.apply_intermediate_result(intermediate);
 
+    // table.print();
+    // println!("==============================");
 
-    table.filter(select_oper, 0);
+    // let intermediate = table.filter_string(&"Anargyros3".to_string(), FilterOpcodes::Equal, 0);
+    // table.apply_intermediate_result(intermediate);
 
-    println!("==============================");
-    table.print();
+    // println!("==============================");
+    // table.print();
 
-}
-
-
-
-fn select_oper(str:&String) -> bool{
-    if str == "Anargyros3"{
-        println!("found");
-        return true;
-    }else{
-        return false;
-    }
 }
