@@ -19,7 +19,7 @@ pub mod dataframe {
                     OperationType::Select => self.exec_select(op),
                     OperationType::Where => self.exec_where(op),
                     OperationType::Sum => self.exec_sum(op),
-                    OperationType::Count => self.exec_count(op),
+                    OperationType::Count => self.exec_count(),
                     OperationType::Empty => self.dummy(),
                     OperationType::Read => self.exec_read(op),
                 };
@@ -28,9 +28,14 @@ pub mod dataframe {
 
         pub fn dummy(&mut self) {}
 
-        pub fn exec_sum(&mut self,op: &OpNode){
-            let i = self.table.sum_field(*self.field_indexes.get(op.get_read_op_filename()).expect("Could not resolve field name!"));
-            println!("Sum of field {}: {}",op.get_read_op_filename(),i);
+        pub fn exec_sum(&mut self, op: &OpNode) {
+            let i = self.table.sum_field(
+                *self
+                    .field_indexes
+                    .get(op.get_read_op_filename())
+                    .expect("Could not resolve field name!"),
+            );
+            println!("Sum of field {}: {}", op.get_read_op_filename(), i);
         }
 
         pub fn exec_read(&mut self, op: &OpNode) {
@@ -76,7 +81,7 @@ pub mod dataframe {
             }
         }
 
-        pub fn exec_count(&self, op: &OpNode) {
+        pub fn exec_count(&self) {
             println!("Number of elements in table {}", self.table.len());
             // todo!();
         }

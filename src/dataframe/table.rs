@@ -113,8 +113,12 @@ pub mod table {
             return idx_vec;
         }
 
-        pub fn sum_field(&self,field_idx:usize) -> i64{
-            return self.data[field_idx].iter().map(|x| x.1.parse::<i64>().expect("Not an numerical value!")).into_iter().sum();
+        pub fn sum_field(&self, field_idx: usize) -> i64 {
+            return self.data[field_idx]
+                .iter()
+                .map(|x| x.1.parse::<i64>().expect("Not an numerical value!"))
+                .into_iter()
+                .sum();
         }
 
         pub fn apply_intermediate_result(&mut self, idx_vec: Vec<usize>) -> &Table {
