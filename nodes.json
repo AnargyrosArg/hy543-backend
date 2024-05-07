@@ -1,0 +1,47 @@
+{
+    "operations": [
+        {
+            "lazy": true,
+            "function_name": "Empty",
+            "args": []
+        },
+        {
+            "lazy": true,
+            "function_name": "Read",
+            "args": [
+                "deniro.csv"
+            ]
+        },
+        {
+            "lazy": true,
+            "function_name": "Select",
+            "args": [
+                "Year",
+                "Title"
+            ]
+        },
+        {
+            "lazy": true,
+            "function_name": "Where",
+            "args": [
+                "Score",
+                ">",
+                "90"
+            ]
+        },
+        {
+            "lazy": true,
+            "function_name": "Sum",
+            "args": [
+                "Year"
+            ]
+        },
+        {
+            "lazy": false,
+            "function_name": "Count",
+            "args": [
+                "column1"
+            ]
+        }
+    ]
+}
