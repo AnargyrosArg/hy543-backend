@@ -66,7 +66,7 @@ pub mod table{
 
             //filter all relevant indexes
             for i in self.data[field].keys(){
-                if Self::compare_with_opcode_string(&self.data[field][i],str,&opcode) {
+                if Self::compare_with_opcode(&self.data[field][i],str,&opcode) {
                     idx_vec.push(*i);
                 }
             }
@@ -83,7 +83,7 @@ pub mod table{
 
             //find all relevant indexes
             for i in self.data[field].keys(){
-                if Self::compare_with_opcode_num(self.data[field][i].parse::<i32>().unwrap(),num,&opcode) {
+                if Self::compare_with_opcode(self.data[field][i].parse::<i32>().unwrap(),num,&opcode) {
                     idx_vec.push(*i);
                 }
             }           
@@ -94,19 +94,14 @@ pub mod table{
             for j in 0..self.nfields{
                 self.data[j].retain(|i,_| idx_vec.contains(&i));
             }
-
             return self;
         }
 
-        
-
-
-
-
-        
-        //Utility function that performs the appropriate operation on numerical values given an opcode 
+    
+        //Utility function that performs the appropriate comparison operation
         #[inline]
-        fn compare_with_opcode_num(num1:i32, num2:i32, opcode:&FilterOpcodes) -> bool{
+        fn compare_with_opcode<T>(num1:T, num2:T, opcode:&FilterOpcodes) -> bool
+        where T: std::cmp::Ord{
             match opcode{
                 FilterOpcodes::Equal => return num1 == num2,
                 FilterOpcodes::Greater => return num1 > num2,
@@ -115,17 +110,8 @@ pub mod table{
                 FilterOpcodes::LessEqual => return num1 <= num2,
             }
         }
-        //Utility function that performs the appropriate operation on numerical values given an opcode 
-        #[inline]
-        fn compare_with_opcode_string(str1:&String, str2:&String, opcode:&FilterOpcodes) -> bool{
-            match opcode{
-                FilterOpcodes::Equal => return str1 == str2,
-                FilterOpcodes::Greater => return str1 > str2,
-                FilterOpcodes::GreaterEqual => return str1 >= str2,
-                FilterOpcodes::Less => return str1 < str2,
-                FilterOpcodes::LessEqual => return str1 <= str2,
-            }
-        }
+
+
     }
 
 }

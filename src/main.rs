@@ -8,18 +8,9 @@ fn main() {
 
 
 fn worker(){
-
-
-    let mut dataframe:Dataframe = Dataframe::read_from_csv("deniro.csv").unwrap();
-
-    dataframe.print_field("Score");
-
-
-    // let mut queue:Queue = Queue::new();
-
-    // let loader:WorkLoader = WorkLoader{};
-
-    // loader.load_work(&mut queue);
+    let dataframe:Dataframe = Dataframe::read_from_csv("deniro.csv",1,10).unwrap();
+    
+    dataframe.print();
 
     // let mut table:Table = Table::new(4);
 
@@ -48,5 +39,4 @@ fn worker(){
 
     // println!("==============================");
     // table.print();
-
 }

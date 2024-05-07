@@ -1,9 +1,9 @@
 pub mod table;
 
 pub mod dataframe{
-    use std::{arch::x86_64::_SIDD_CMP_EQUAL_ORDERED, collections::HashMap, error::Error};
-    use csv::StringRecord;
-
+    use std::{collections::HashMap, error::Error, io::Seek};
+    use csv::{Position, StringRecord};
+    use std::io::{BufRead, BufReader};
     use super::table::table::Table;
     use std::fs::File;
     
@@ -36,7 +36,7 @@ pub mod dataframe{
         }
 
         
-        pub fn read_from_csv(filename:&str) -> Result<Dataframe, Box<dyn Error>>{
+        pub fn read_from_csv(filename:&str, starting_line:usize,stopping_line:usize) -> Result<Dataframe, Box<dyn Error>>{
             let file = File::open(filename);
             
             //create reader object
@@ -48,21 +48,34 @@ pub mod dataframe{
             for i in headers.iter(){
                 fieldnames.push(i.to_string());
             }                    
-
+            
+            //create new dataframe and load data
             let mut dataframe = Dataframe::new(fieldnames);
-            //insert csv data into the dataframe            
-            for record in rdr.records(){
+            //insert csv data into the dataframe skipping starting_line - 1 records
+            let mut records_iter = rdr.records().skip(starting_line-1);
+            for _iter in 0..(stopping_line-starting_line +1){
+                let record = records_iter.next().expect("Failed to get element while iterating");
                 dataframe.add_entry(record.unwrap());
             }
 
             return Ok(dataframe);
         }
 
+        
+        pub fn print(&self){
+            for i in self.field_indexes.iter(){
+                print!("{},",i.0);
+            }
+            println!();
+            self.table.print();
+        }
 
         pub fn print_field(&self ,fieldname:&str){
             println!("{}:",fieldname);
             self.table.print_field(self.field_indexes[fieldname]);
         }
+
+
     }
    
 
