@@ -31,7 +31,7 @@ pub mod table {
             return tab;
         }
         pub fn len(&self) -> usize {
-            return self.data.len();
+            return self.data[0].len();
         }
 
         pub fn push(&mut self, mut entry: Vec<String>) {
@@ -121,7 +121,7 @@ pub mod table {
                 .sum();
         }
 
-        pub fn apply_intermediate_result(&mut self, idx_vec: Vec<usize>) -> &Table {
+        pub fn apply_intermediate_result(&mut self, idx_vec: &Vec<usize>) -> &Table {
             for j in 0..self.nfields {
                 self.data[j].retain(|i, _| idx_vec.contains(&i));
             }

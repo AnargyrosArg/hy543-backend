@@ -5,12 +5,18 @@ pub mod dataframe {
     use super::table::table::Table;
     use crate::execgraph::execgraph::{ExecGraph, OpNode, OperationType};
     use csv::StringRecord;
+    use mpi::environment::Universe;
+    use mpi::traits::{Communicator, Group, Root};
+    use std::cmp;
     use std::collections::HashMap;
     use std::fs::File;
+    use std::io::{BufRead, BufReader};
 
     pub struct Dataframe {
         table: Table,
         field_indexes: HashMap<String, usize>,
+        result: Vec<usize>,
+        mpi_universe: Universe,
     }
     impl Dataframe {
         pub fn play(&mut self, graph: ExecGraph) {
@@ -36,10 +42,11 @@ pub mod dataframe {
                     .expect("Could not resolve field name!"),
             );
             println!("Sum of field {}: {}", op.get_read_op_filename(), i);
+            //Todo communicate result
         }
 
         pub fn exec_read(&mut self, op: &OpNode) {
-            self.read_from_csv(&op.get_read_op_filename(), 1, 10);
+            self.read_from_csv(&op.get_read_op_filename());
         }
 
         pub fn exec_where(&mut self, op: &OpNode) {
@@ -67,7 +74,8 @@ pub mod dataframe {
                 );
             }
 
-            self.table.apply_intermediate_result(intermediate);
+            self.table.apply_intermediate_result(&intermediate);
+            self.result = intermediate;
         }
 
         pub fn exec_select(&mut self, op: &OpNode) {
@@ -81,15 +89,18 @@ pub mod dataframe {
             }
         }
 
-        pub fn exec_count(&self) {
+        pub fn exec_count(&mut self) {
             println!("Number of elements in table {}", self.table.len());
             // todo!();
+            self.result = vec![self.table.len()];
         }
 
-        pub fn new_empty() -> Dataframe {
+        pub fn new_empty(universe: Universe) -> Dataframe {
             return Dataframe {
                 table: Table::new(0),
                 field_indexes: HashMap::new(),
+                result: Vec::new(),
+                mpi_universe: universe,
             };
         }
 
@@ -101,61 +112,43 @@ pub mod dataframe {
             self.table.push(entry);
         }
 
-        // fn new(fieldnames:Vec<String>) -> Dataframe{
-        //     let mut fieldmap: HashMap<String,usize> =  HashMap::new();
-        //     for i in 0..fieldnames.len(){
-        //         fieldmap.insert(fieldnames[i].trim().to_owned(),i);
-        //     }
+        pub fn read_from_csv(&mut self, filename: &str) {
+            let file: File = File::open(filename).expect("Could not open file!");
+            let reader = BufReader::new(file);
+            let mut linecount: usize = 0;
 
-        //     let dataframe = Dataframe{
-        //         table:Table::new(fieldnames.len()),
-        //         field_indexes: fieldmap,
-        //     };
-        //     return dataframe;
-        // }
+            let workers_vec = (1..self.mpi_universe.world().size()).collect::<Vec<_>>();
+            let workers_group = self.mpi_universe.world().group().include(&workers_vec[..]);
+            let workers = self
+                .mpi_universe
+                .world()
+                .split_by_subgroup(&workers_group)
+                .unwrap();
 
-        // pub fn read_from_csv(filename:&str, starting_line:usize,stopping_line:usize) -> Result<Dataframe, Box<dyn Error>>{
-        //     let file = File::open(filename);
+            if workers.rank() == 0 {
+                //get linecount by parsing file once
+                linecount = reader.lines().count();
+            }
 
-        //     //create reader object
-        //     let mut rdr = csv::ReaderBuilder::new().trim(csv::Trim::All).quoting(true).from_reader(file.unwrap());
+            workers.process_at_rank(0).broadcast_into(&mut linecount);
 
-        //     //get headers -> the names of the fields and construct a new dataframe object
-        //     let headers = rdr.headers()?;
-        //     let mut fieldnames = Vec::new();
-        //     for i in headers.iter(){
-        //         fieldnames.push(i.to_string());
-        //     }
-
-        //     //create new dataframe and load data
-        //     let mut dataframe = Dataframe::new(fieldnames);
-        //     //insert csv data into the dataframe skipping starting_line - 1 records
-        //     let mut records_iter = rdr.records().skip(starting_line-1);
-        //     for _iter in 0..(stopping_line-starting_line +1){
-        //         let record = records_iter.next().expect("Failed to get element while iterating");
-        //         dataframe.add_entry(record.unwrap());
-        //     }
-
-        //     return Ok(dataframe);
-        // }
-
-        pub fn read_from_csv(
-            &mut self,
-            filename: &str,
-            starting_line: usize,
-            stopping_line: usize,
-        ) {
-            assert!(
-                starting_line >= 1,
-                "Starting line should be >= 1! First line == line 1"
+            linecount = linecount - 1; //-1 to account for header line
+            
+            let rows_per_line = ((linecount as f32) / workers.size() as f32).ceil() as i32;
+            
+            let starting_line = workers.rank() * rows_per_line ;
+            let stopping_line: i32 = cmp::min(
+                starting_line + rows_per_line,
+                linecount as i32,
             );
-            let file = File::open(filename);
+
+            let file: File = File::open(filename).unwrap();
 
             //create reader object
             let mut rdr = csv::ReaderBuilder::new()
                 .trim(csv::Trim::All)
                 .quoting(true)
-                .from_reader(file.unwrap());
+                .from_reader(file);
 
             //get headers -> the names of the fields and construct a new dataframe object
             let headers = rdr.headers().expect("failed getting headers!");
@@ -164,9 +157,7 @@ pub mod dataframe {
                 fieldnames.push(i.to_string());
             }
 
-            //create new dataframe and load data
-            // let mut dataframe = Dataframe::new(fieldnames);
-
+            //construct fieldmap
             let mut fieldmap: HashMap<String, usize> = HashMap::new();
             for i in 0..fieldnames.len() {
                 fieldmap.insert(fieldnames[i].trim().to_owned(), i);
@@ -175,8 +166,9 @@ pub mod dataframe {
             self.field_indexes = fieldmap;
 
             //insert csv data into the dataframe skipping starting_line - 1 records
-            let mut records_iter = rdr.records().skip(starting_line - 1);
-            for _iter in 0..(stopping_line - starting_line + 1) {
+            let mut records_iter = rdr.records().skip(starting_line as usize);
+            for _iter in 0..(stopping_line - starting_line) {
+                // println!("iter = {}",_iter);
                 let record = records_iter
                     .next()
                     .expect("Failed to get element while iterating");
