@@ -12,13 +12,13 @@ pub mod dataframe {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
-    pub struct Dataframe {
+    pub struct Dataframe<'a> {
         table: Table,
         field_indexes: HashMap<String, usize>,
         result: Vec<usize>,
-        mpi_universe: Universe,
+        mpi_universe: &'a Universe,
     }
-    impl Dataframe {
+    impl<'a> Dataframe<'a> {
         pub fn play(&mut self, graph: ExecGraph) {
             for op in graph.iter() {
                 match op.optype() {
@@ -95,7 +95,7 @@ pub mod dataframe {
             self.result = vec![self.table.len()];
         }
 
-        pub fn new_empty(universe: Universe) -> Dataframe {
+        pub fn new_empty(universe: &Universe) -> Dataframe {
             return Dataframe {
                 table: Table::new(0),
                 field_indexes: HashMap::new(),
@@ -133,14 +133,11 @@ pub mod dataframe {
             workers.process_at_rank(0).broadcast_into(&mut linecount);
 
             linecount = linecount - 1; //-1 to account for header line
-            
+
             let rows_per_line = ((linecount as f32) / workers.size() as f32).ceil() as i32;
-            
-            let starting_line = workers.rank() * rows_per_line ;
-            let stopping_line: i32 = cmp::min(
-                starting_line + rows_per_line,
-                linecount as i32,
-            );
+
+            let starting_line = workers.rank() * rows_per_line;
+            let stopping_line: i32 = cmp::min(starting_line + rows_per_line, linecount as i32);
 
             let file: File = File::open(filename).unwrap();
 
