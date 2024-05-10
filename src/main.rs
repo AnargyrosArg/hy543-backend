@@ -1,19 +1,17 @@
+use std::collections::HashMap;
 use std::{fs::File, io::BufReader};
 
 use dataframe::dataframe::Dataframe;
 use execgraph::execgraph::ExecGraph;
-use mpi::traits::CommunicatorCollectives;
+use mpi::collective::SystemOperation;
+use mpi::traits::{CommunicatorCollectives, Root};
 use mpi::{environment::Universe, traits::Communicator};
 
 mod dataframe;
 pub mod execgraph;
 
-use std::io::Read;
-use std::net::Ipv4Addr;
-use std::net::TcpListener;
-
-const ADDR: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
-const PORT: u16 = 7878;
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
 
 fn main() {
     let universe: Universe = mpi::initialize().unwrap();
@@ -34,7 +32,8 @@ fn main() {
     match rank {
         0 => {
             communicator(universe);
-        }
+            
+        },
         _ => {
             worker(universe);
         }
@@ -43,6 +42,7 @@ fn main() {
 
 fn communicator(universe: Universe) {
     loop {
+        //receive graph from client
         let listener = TcpListener::bind("127.0.0.1:8000").unwrap();
         for stream in listener.incoming() {
             let mut stream = stream.unwrap();
@@ -53,18 +53,42 @@ fn communicator(universe: Universe) {
                 .expect("Not a valid UTF-8 sequence")
                 .to_string();
             let deserialized_graph: ExecGraph = serde_json::from_str(&s).unwrap();
-
+            let mut file = File::create("nodes.json").unwrap();
+            file.write_all(s.as_bytes()).unwrap();
             deserialized_graph.print();
             break;
         }
-
+        //barrier not required -> there should be an implicit barrier on graph broadcast -> remove when implemented
         universe.world().barrier();
+
+        //TODO BROADCAST GRAPH
+
+        //TODO GATHER RESULT
+        let mut numeric_result = 0 as usize;
+        let dummy = 0 as usize;
+        universe.world().process_at_rank(0).reduce_into_root(
+            &dummy,
+            &mut numeric_result,
+            SystemOperation::sum(),
+        );
+
+        println!("Reduced result: {}", numeric_result);
+
+        //Response to client
+        let mut stream = TcpStream::connect("127.0.0.1:8001").unwrap();
+        let num_string = numeric_result.to_string();
+        let msg = num_string.as_bytes();
+        stream.write_all(msg).unwrap();
     }
 }
 
 fn worker(universe: Universe) {
+    let mut persisted_graphs: HashMap<usize,Dataframe> = HashMap::new();
     loop {
+        //barrier not required -> there should be an implicit barrier on graph broadcast -> remove when implemented
         universe.world().barrier();
+
+
         // Open the file in read-only mode with buffer.
         let file = File::open("nodes.json").expect("Could not open file!");
         let reader = BufReader::new(file);
@@ -73,11 +97,26 @@ fn worker(universe: Universe) {
         let graph: ExecGraph = serde_json::from_reader(reader).expect("Could not read json!");
 
         //init dataframe
-        let mut dataframe = Dataframe::new_empty(&universe);
+        let mut dataframe;
+        if *graph.get_checkpoint() == 0 {
+            //no checkpoint for current graph -> make new from scratch
+            dataframe = Dataframe::new_empty(&universe);
+        }else{
+            //get from checkpoint
+            dataframe = persisted_graphs.remove(graph.get_checkpoint()).unwrap();
+        }
 
         //Execute the graph
-        dataframe.play(graph);
+        dataframe.play(&graph);
 
-        dataframe.print();
+        //communicate numeric to communicator -> fetch not supported yet
+        let mut numeric_result = dataframe.get_result();
+        universe
+            .world()
+            .process_at_rank(0)
+            .reduce_into(&mut numeric_result, SystemOperation::sum());
+        
+        let id = graph.iter().last().unwrap().get_operation_id();
+        persisted_graphs.insert(id, dataframe);
     }
 }

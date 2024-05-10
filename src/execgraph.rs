@@ -1,8 +1,6 @@
 pub mod execgraph {
-
-    use serde::Deserialize;
-
     use crate::dataframe::table::table::FilterOpcodes;
+    use serde::Deserialize;
 
     #[derive(Deserialize, Debug)]
     pub enum OperationType {
@@ -11,21 +9,23 @@ pub mod execgraph {
         Where,
         Sum,
         Count,
+        Fetch,
         Empty, // it is for the initialization
     }
 
     #[derive(Deserialize)]
     pub struct ExecGraph {
         operations: Vec<OpNode>,
+        checkpoint:usize,
     }
 
     #[derive(Deserialize, Debug)]
     pub struct OpNode {
         //id
-        lazy: bool, // if it is lazy t means it just creates a new node to the graph
+        id: usize, // if it is lazy t means it just creates a new node to the graph
         function_name: OperationType, //the function name
         args: Vec<String>, //arguments about the function
-                    //to add more fields
+                   //to add more fields
     }
 
     impl OpNode {
@@ -59,6 +59,10 @@ pub mod execgraph {
         pub fn get_projection_fields(&self) -> &Vec<String> {
             return &self.args;
         }
+
+        pub fn get_operation_id(&self) -> usize {
+            return self.id;
+        }
     }
 
     impl std::fmt::Display for OperationType {
@@ -70,15 +74,20 @@ pub mod execgraph {
                 OperationType::Count => write!(f, "Count"),
                 OperationType::Empty => write!(f, "Empty"),
                 OperationType::Read => write!(f, "Read"),
+                OperationType::Fetch => write!(f, "Fetch"),
             }
         }
     }
 
     impl ExecGraph {
-        pub fn new(ops: Vec<OpNode>) -> ExecGraph {
-            return ExecGraph { operations: ops };
-        }
+        // pub fn new(ops: Vec<OpNode>) -> ExecGraph {
+        //     return ExecGraph { operations: ops };
+        // }
 
+        pub fn get_checkpoint(&self) -> &usize{
+            return &self.checkpoint;
+        }
+        
         pub fn print(&self) {
             for op in &self.operations {
                 print!("{} -> ", op.function_name);

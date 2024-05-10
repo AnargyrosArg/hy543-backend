@@ -15,11 +15,11 @@ pub mod dataframe {
     pub struct Dataframe<'a> {
         table: Table,
         field_indexes: HashMap<String, usize>,
-        result: Vec<usize>,
+        result: usize,
         mpi_universe: &'a Universe,
     }
     impl<'a> Dataframe<'a> {
-        pub fn play(&mut self, graph: ExecGraph) {
+        pub fn play(&mut self, graph: &ExecGraph) {
             for op in graph.iter() {
                 match op.optype() {
                     OperationType::Select => self.exec_select(op),
@@ -28,6 +28,7 @@ pub mod dataframe {
                     OperationType::Count => self.exec_count(),
                     OperationType::Empty => self.dummy(),
                     OperationType::Read => self.exec_read(op),
+                    OperationType::Fetch => todo!("FETCH"),
                 };
             }
         }
@@ -41,8 +42,8 @@ pub mod dataframe {
                     .get(op.get_read_op_filename())
                     .expect("Could not resolve field name!"),
             );
-            println!("Sum of field {}: {}", op.get_read_op_filename(), i);
-            //Todo communicate result
+            // println!("Sum of field {}: {}", op.get_read_op_filename(), i);
+            self.result = i as usize;
         }
 
         pub fn exec_read(&mut self, op: &OpNode) {
@@ -75,7 +76,6 @@ pub mod dataframe {
             }
 
             self.table.apply_intermediate_result(&intermediate);
-            self.result = intermediate;
         }
 
         pub fn exec_select(&mut self, op: &OpNode) {
@@ -90,16 +90,14 @@ pub mod dataframe {
         }
 
         pub fn exec_count(&mut self) {
-            println!("Number of elements in table {}", self.table.len());
-            // todo!();
-            self.result = vec![self.table.len()];
+            self.result = self.table.len();
         }
 
         pub fn new_empty(universe: &Universe) -> Dataframe {
             return Dataframe {
                 table: Table::new(0),
                 field_indexes: HashMap::new(),
-                result: Vec::new(),
+                result: 0,
                 mpi_universe: universe,
             };
         }
@@ -165,7 +163,6 @@ pub mod dataframe {
             //insert csv data into the dataframe skipping starting_line - 1 records
             let mut records_iter = rdr.records().skip(starting_line as usize);
             for _iter in 0..(stopping_line - starting_line) {
-                // println!("iter = {}",_iter);
                 let record = records_iter
                     .next()
                     .expect("Failed to get element while iterating");
@@ -186,6 +183,10 @@ pub mod dataframe {
             }
             println!();
             self.table.print();
+        }
+
+        pub fn get_result(&self) -> usize {
+            return self.result;
         }
     }
 }
