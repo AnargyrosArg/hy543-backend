@@ -14,6 +14,8 @@ pub mod execgraph;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
+use gethostname::gethostname;
+
 fn main() {
     let universe: Universe = mpi::initialize().unwrap();
     let world: mpi::topology::SimpleCommunicator = universe.world();
@@ -49,6 +51,7 @@ fn communicator(universe: Universe) {
 
         let listener = TcpListener::bind("127.0.0.1:12345").unwrap();
         for stream in listener.incoming() {
+            println!("Communicator started at node: {:?}",gethostname());
             let mut stream = stream.unwrap();
 
             let mut buffer = [0; 512];
