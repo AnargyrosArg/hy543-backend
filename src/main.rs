@@ -21,6 +21,7 @@ fn main() {
     let world: mpi::topology::SimpleCommunicator = universe.world();
     let rank: i32 = world.rank();
 
+    println!("Init..");
     //need atleast 2 nodes: 1 communicator + 1 worker
     assert!(world.size() > 1);
 
