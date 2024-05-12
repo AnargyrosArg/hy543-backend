@@ -50,8 +50,8 @@ fn communicator(universe: Universe) {
 
 
         let listener = TcpListener::bind("127.0.0.1:12345").unwrap();
+        println!("Communicator started at node: {:?}",gethostname());
         for stream in listener.incoming() {
-            println!("Communicator started at node: {:?}",gethostname());
             let mut stream = stream.unwrap();
 
             let mut buffer = [0; 512];
