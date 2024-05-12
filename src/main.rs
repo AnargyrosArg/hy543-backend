@@ -45,7 +45,9 @@ fn communicator(universe: Universe) {
         let mut len: i32 = 0;
         let mut s:String = String::new();
         //receive graph from client
-        let listener = TcpListener::bind("127.0.0.1:8000").unwrap();
+
+
+        let listener = TcpListener::bind("127.0.0.1:12345").unwrap();
         for stream in listener.incoming() {
             let mut stream = stream.unwrap();
 
@@ -87,8 +89,9 @@ fn communicator(universe: Universe) {
 
         println!("Reduced result: {}", numeric_result);
 
+        let client_addr ="10.0.19.81:12345";
         //Response to client
-        let mut stream = TcpStream::connect("127.0.0.1:8001").unwrap();
+        let mut stream = TcpStream::connect(client_addr).unwrap();
         let num_string = numeric_result.to_string();
         let msg = num_string.as_bytes();
         stream.write_all(msg).unwrap();
