@@ -49,7 +49,7 @@ fn communicator(universe: Universe) {
         //receive graph from client
 
 
-        let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+        let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
         println!("Communicator started at node: {:?}",gethostname());
         for stream in listener.incoming() {
             let mut stream = stream.unwrap();
@@ -92,7 +92,7 @@ fn communicator(universe: Universe) {
 
         println!("Reduced result: {}", numeric_result);
 
-        let client_addr ="10.0.19.81:8080";
+        let client_addr ="10.0.19.81:8081";
         //Response to client
         let mut stream = TcpStream::connect(client_addr).unwrap();
         let num_string = numeric_result.to_string();
