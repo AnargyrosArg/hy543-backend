@@ -4,7 +4,6 @@ pub mod dataframe {
 
     use super::table::table::Table;
     use crate::execgraph::execgraph::{ExecGraph, OpNode, OperationType};
-    use csv::StringRecord;
     use mpi::environment::Universe;
     use mpi::traits::{Communicator, Group, Root};
     use std::cmp;
@@ -104,18 +103,18 @@ pub mod dataframe {
             };
         }
 
-        fn add_entry(&mut self, record: StringRecord) {
-            let mut entry = Vec::new();
-            for i in record.iter() {
-                entry.push(i.to_string());
-            }
-            self.table.push(entry);
-        }
+        // fn add_entry(&mut self, record: StringRecord) {
+        //     let mut entry = Vec::new();
+        //     for i in record.iter() {
+        //         entry.push(i.to_string());
+        //     }
+        //     self.table.push(entry);
+        // }
 
         pub fn read_from_csv(&mut self, filename: &str) {
             let file: File = File::open(filename).expect("Could not open file!");
             let reader = BufReader::new(file);
-            let mut linecount: usize = 100000001;
+            let mut linecount: usize = 0;
 
             let workers_vec = (1..self.mpi_universe.world().size()).collect::<Vec<_>>();
             let workers_group = self.mpi_universe.world().group().include(&workers_vec[..]);
@@ -172,24 +171,27 @@ pub mod dataframe {
                 let record = records_iter
                     .next()
                     .expect("Failed to get element while iterating");
-                self.add_entry(record.unwrap());
+
+                let entry: Vec<_> = record.unwrap().iter().map(|x| x.to_string()).collect();
+                self.table.push(entry);          
             }
+
         }
 
-        pub fn print(&self) {
-            for i in self.field_indexes.iter() {
-                if self.table.is_projected(
-                    *self
-                        .field_indexes
-                        .get(i.0)
-                        .expect("Unable to resolve field name!"),
-                ) {
-                    print!("{},", i.0);
-                }
-            }
-            println!();
-            self.table.print();
-        }
+        // pub fn print(&self) {
+        //     for i in self.field_indexes.iter() {
+        //         if self.table.is_projected(
+        //             *self
+        //                 .field_indexes
+        //                 .get(i.0)
+        //                 .expect("Unable to resolve field name!"),
+        //         ) {
+        //             print!("{},", i.0);
+        //         }
+        //     }
+        //     println!();
+        //     self.table.print();
+        // }
 
         pub fn get_result(&self) -> usize {
             return self.result;

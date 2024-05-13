@@ -48,22 +48,22 @@ pub mod table {
             self.projections[field] = true;
         }
 
-        pub fn is_projected(&self, idx: usize) -> bool {
-            return self.projections[idx];
-        }
+        // pub fn is_projected(&self, idx: usize) -> bool {
+        //     return self.projections[idx];
+        // }
 
-        pub fn print(&self) {
-            for i in self.data[0].keys() {
-                for j in 0..self.nfields {
-                    if self.projections[j] == true {
-                        print!("{},", &self.data[j][i]);
-                    } else {
-                        continue;
-                    }
-                }
-                println!("");
-            }
-        }
+        // pub fn print(&self) {
+        //     for i in self.data[0].keys() {
+        //         for j in 0..self.nfields {
+        //             if self.projections[j] == true {
+        //                 print!("{},", &self.data[j][i]);
+        //             } else {
+        //                 continue;
+        //             }
+        //         }
+        //         println!("");
+        //     }
+        // }
 
         // filter_string (String, String, operation enum)
         //and performs the appropriate operation
