@@ -1,5 +1,4 @@
 pub mod table {
-    use std::collections::BTreeMap;
     pub enum FilterOpcodes {
         Equal,
         Greater,
@@ -9,7 +8,7 @@ pub mod table {
     }
 
     pub struct Table {
-        data: Vec<BTreeMap<usize, String>>,
+        data: Vec<Vec<(usize, String)>>,
         projections: Vec<bool>,
         nfields: usize,
         new_index: usize,
@@ -25,7 +24,7 @@ pub mod table {
             };
 
             for _i in 0..nfields {
-                tab.data.push(BTreeMap::new());
+                tab.data.push(vec![]);
                 tab.projections.push(false);
             }
             return tab;
@@ -38,7 +37,7 @@ pub mod table {
             assert!(self.nfields == entry.len());
 
             for i in (0..self.nfields).rev() {
-                self.data[i].insert(self.new_index, entry.pop().unwrap());
+                self.data[i].push((self.new_index, entry.pop().unwrap()));
             }
 
             self.new_index = self.new_index + 1;
@@ -79,9 +78,9 @@ pub mod table {
             let mut idx_vec: Vec<usize> = Vec::new();
 
             //filter all relevant indexes
-            for i in self.data[field].keys() {
-                if Self::compare_with_opcode(&self.data[field][i], str, &opcode) {
-                    idx_vec.push(*i);
+            for i in &self.data[field] {
+                if Self::compare_with_opcode(&i.1, str, &opcode) {
+                    idx_vec.push(i.0);
                 }
             }
             return idx_vec;
@@ -101,13 +100,13 @@ pub mod table {
             let mut idx_vec: Vec<usize> = Vec::new();
 
             //find all relevant indexes
-            for i in self.data[field].keys() {
+            for i in &self.data[field] {
                 if Self::compare_with_opcode(
-                    self.data[field][i].parse::<i64>().unwrap(),
+                    i.1.parse::<i64>().unwrap(),
                     num,
                     &opcode,
                 ) {
-                    idx_vec.push(*i);
+                    idx_vec.push(i.0);
                 }
             }
             return idx_vec;
@@ -123,7 +122,7 @@ pub mod table {
 
         pub fn apply_intermediate_result(&mut self, idx_vec: &Vec<usize>) -> &Table {
             for j in 0..self.nfields {
-                self.data[j].retain(|i, _| idx_vec.contains(&i));
+                self.data[j].retain(|i| idx_vec.contains(&i.0));
             }
             return self;
         }
