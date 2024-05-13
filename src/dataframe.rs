@@ -166,7 +166,7 @@ pub mod dataframe {
             //insert csv data into the dataframe skipping starting_line - 1 records
             let mut records_iter = rdr.records().skip(starting_line as usize);
             for _iter in 0..(stopping_line - starting_line) {
-                if _iter % (stopping_line - starting_line) == 0{
+                if _iter % ((stopping_line - starting_line) / 100) == 0{
                     println!("Worker: {} at Iter {} / {}",workers.rank(),_iter,(stopping_line - starting_line));
                 }
                 let record = records_iter
