@@ -21,6 +21,7 @@ pub mod dataframe {
     impl<'a> Dataframe<'a> {
         pub fn play(&mut self, graph: &ExecGraph) {
             for op in graph.iter() {
+                println!("Executing: {}",op.optype());
                 match op.optype() {
                     OperationType::Select => self.exec_select(op),
                     OperationType::Where => self.exec_where(op),
@@ -30,6 +31,7 @@ pub mod dataframe {
                     OperationType::Read => self.exec_read(op),
                     OperationType::Fetch => todo!("FETCH"),
                 };
+                println!("Done!");
             }
         }
 

@@ -49,7 +49,6 @@ fn communicator(universe: Universe) {
         let mut s:String = String::new();
         //receive graph from client
 
-        println!("ATTEMPTING TO BIND PORT AT 65000");
         let listener = TcpListener::bind("0.0.0.0:65000").unwrap();
         println!("Communicator started at node: {:?}",gethostname());
         for stream in listener.incoming() {
@@ -136,7 +135,7 @@ fn worker(universe: Universe) {
 
         //Execute the graph
         dataframe.play(&graph);
-
+        println!("Graph executed!");
         //communicate numeric to communicator -> fetch not supported yet
         let mut numeric_result = dataframe.get_result();
         universe
