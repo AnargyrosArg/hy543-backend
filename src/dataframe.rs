@@ -167,7 +167,7 @@ pub mod dataframe {
             let mut records_iter = rdr.records().skip(starting_line as usize);
             for _iter in 0..(stopping_line - starting_line) {
                 if _iter % (stopping_line - starting_line) == 0{
-                    println!("Iter {} / {}",_iter,(stopping_line - starting_line));
+                    println!("Worker: {} at Iter {} / {}",workers.rank(),_iter,(stopping_line - starting_line));
                 }
                 let record = records_iter
                     .next()
