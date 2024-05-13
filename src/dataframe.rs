@@ -125,10 +125,11 @@ pub mod dataframe {
                 .split_by_subgroup(&workers_group)
                 .unwrap();
 
-            // if workers.rank() == 0 {
-            //     //get linecount by parsing file once
-            //     linecount = reader.lines().count();
-            // }
+            if workers.rank() == 0 {
+                //get linecount by parsing file once
+                linecount = reader.lines().count();
+                println!("Got linecount -> {}",linecount);
+            }
 
             workers.process_at_rank(0).broadcast_into(&mut linecount);
 
@@ -165,6 +166,9 @@ pub mod dataframe {
             //insert csv data into the dataframe skipping starting_line - 1 records
             let mut records_iter = rdr.records().skip(starting_line as usize);
             for _iter in 0..(stopping_line - starting_line) {
+                if _iter % (stopping_line - starting_line) == 0{
+                    println!("Iter {} / {}",_iter,(stopping_line - starting_line));
+                }
                 let record = records_iter
                     .next()
                     .expect("Failed to get element while iterating");
