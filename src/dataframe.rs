@@ -115,7 +115,7 @@ pub mod dataframe {
         pub fn read_from_csv(&mut self, filename: &str) {
             let file: File = File::open(filename).expect("Could not open file!");
             let reader = BufReader::new(file);
-            let mut linecount: usize = 0;
+            let mut linecount: usize = 100000001;
 
             let workers_vec = (1..self.mpi_universe.world().size()).collect::<Vec<_>>();
             let workers_group = self.mpi_universe.world().group().include(&workers_vec[..]);
@@ -125,10 +125,10 @@ pub mod dataframe {
                 .split_by_subgroup(&workers_group)
                 .unwrap();
 
-            if workers.rank() == 0 {
-                //get linecount by parsing file once
-                linecount = reader.lines().count();
-            }
+            // if workers.rank() == 0 {
+            //     //get linecount by parsing file once
+            //     linecount = reader.lines().count();
+            // }
 
             workers.process_at_rank(0).broadcast_into(&mut linecount);
 
