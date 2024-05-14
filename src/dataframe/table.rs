@@ -100,9 +100,9 @@ pub mod table {
             let mut idx_vec: Vec<usize> = Vec::new();
 
             //find all relevant indexes
-            for i in &self.data[field] {
+            for i in (&self.data[field]).iter().enumerate() {
                 if Self::compare_with_opcode(
-                    i.1.parse::<i64>().unwrap(),
+                    i.1.1.parse::<i64>().unwrap(),
                     num,
                     &opcode,
                 ) {
