@@ -121,9 +121,19 @@ pub mod table {
         }
 
         pub fn apply_intermediate_result(&mut self, idx_vec: &Vec<usize>) -> &Table {
+
+            let mut new_data: Vec<Vec<(usize, String)>> =  Vec::new();
+
             for j in 0..self.nfields {
-                self.data[j].retain(|i| idx_vec.contains(&i.0));
+                new_data.push(Vec::new());
+                for i in idx_vec{
+                    let row = self.data[j].swap_remove(*i);
+                    new_data[j].push(row);
+                }   
+                
             }
+
+            self.data = new_data;
             return self;
         }
 
