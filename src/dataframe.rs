@@ -5,11 +5,10 @@ pub mod dataframe {
     use super::table::table::Table;
     use crate::execgraph::execgraph::{ExecGraph, OpNode, OperationType};
     use mpi::environment::Universe;
-    use mpi::traits::{Communicator, Group, Root};
-    use std::cmp;
+    use mpi::traits::Communicator;
     use std::collections::HashMap;
     use std::fs::File;
-    use std::io::{BufRead, BufReader};
+    use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 
     pub struct Dataframe<'a> {
         table: Table,
@@ -20,7 +19,7 @@ pub mod dataframe {
     impl<'a> Dataframe<'a> {
         pub fn play(&mut self, graph: &ExecGraph) {
             for op in graph.iter() {
-                println!("Executing: {}",op.optype());
+                println!("Executing: {}", op.optype());
                 match op.optype() {
                     OperationType::Select => self.exec_select(op),
                     OperationType::Where => self.exec_where(op),
@@ -112,33 +111,6 @@ pub mod dataframe {
         // }
 
         pub fn read_from_csv(&mut self, filename: &str) {
-            let file: File = File::open(filename).expect("Could not open file!");
-            let reader = BufReader::new(file);
-            let mut linecount: usize = 0;
-
-            let workers_vec = (1..self.mpi_universe.world().size()).collect::<Vec<_>>();
-            let workers_group = self.mpi_universe.world().group().include(&workers_vec[..]);
-            let workers = self
-                .mpi_universe
-                .world()
-                .split_by_subgroup(&workers_group)
-                .unwrap();
-
-            if workers.rank() == 0 {
-                //get linecount by parsing file once
-                linecount = reader.lines().count();
-                println!("Got linecount -> {}",linecount);
-            }
-
-            workers.process_at_rank(0).broadcast_into(&mut linecount);
-
-            linecount = linecount - 1; //-1 to account for header line
-
-            let rows_per_line = ((linecount as f32) / workers.size() as f32).ceil() as i32;
-
-            let starting_line = workers.rank() * rows_per_line;
-            let stopping_line: i32 = cmp::min(starting_line + rows_per_line, linecount as i32);
-
             let file: File = File::open(filename).unwrap();
 
             //create reader object
@@ -154,28 +126,40 @@ pub mod dataframe {
                 fieldnames.push(i.to_string());
             }
 
-            //construct fieldmap
-            let mut fieldmap: HashMap<String, usize> = HashMap::new();
-            for i in 0..fieldnames.len() {
-                fieldmap.insert(fieldnames[i].trim().to_owned(), i);
-            }
-            self.table = Table::new(fieldnames.len());
-            self.field_indexes = fieldmap;
+            let n_workers = self.mpi_universe.world().size();
+
+            let mut f = File::open(filename).unwrap();
+            let total_bytes = f.metadata().unwrap().len();
+            let starting_byte =
+                (total_bytes / n_workers as u64) * self.mpi_universe.world().rank() as u64;
+
+            println!("Total size: {}", total_bytes);
+
+            f.seek(SeekFrom::Start(starting_byte)).unwrap();
+
+            let mut reader = BufReader::new(f);
+            let mut buf = vec![];
+            let n_read = reader.read_until(b'\n', &mut buf).unwrap();
+
+            println!("read {} bytes till newline", n_read);
+            let mut buf: Vec<u8> = vec![0u8; (total_bytes / n_workers as u64) as usize - n_read];
+            reader.read_exact(&mut buf).unwrap();
+
+            reader.read_until(b'\n', &mut buf).unwrap();
+
+            //create reader object
+            let mut rdr = csv::ReaderBuilder::new()
+                .has_headers(false)
+                .trim(csv::Trim::All)
+                .quoting(true)
+                .from_reader(buf.as_slice());
 
             //insert csv data into the dataframe skipping starting_line - 1 records
-            let mut records_iter = rdr.records().skip(starting_line as usize);
-            for _iter in 0..(stopping_line - starting_line) {
-                if _iter % ((stopping_line - starting_line) / 100) == 0{
-                    println!("Worker: {} at Iter {} / {}",workers.rank(),_iter,(stopping_line - starting_line));
-                }
-                let record = records_iter
-                    .next()
-                    .expect("Failed to get element while iterating");
-
+            let records_iter = rdr.records();
+            for record in records_iter {
                 let entry: Vec<_> = record.unwrap().iter().map(|x| x.to_string()).collect();
-                self.table.push(entry);          
+                self.table.push(entry);
             }
-
         }
 
         // pub fn print(&self) {
