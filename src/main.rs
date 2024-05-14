@@ -91,7 +91,7 @@ fn communicator(universe: Universe) {
 
         println!("Reduced result: {}", numeric_result);
 
-        let client_addr ="node1:65001";
+        let client_addr ="large2:65001";
         //Response to client
         let mut stream = TcpStream::connect(client_addr).unwrap();
         let num_string = numeric_result.to_string();
