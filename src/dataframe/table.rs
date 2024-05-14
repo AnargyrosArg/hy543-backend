@@ -78,8 +78,12 @@ pub mod table {
             let mut idx_vec: Vec<usize> = Vec::new();
 
             //filter all relevant indexes
-            for i in &self.data[field] {
-                if Self::compare_with_opcode(&i.1, str, &opcode) {
+             for i in (&self.data[field]).iter().enumerate() {
+                if Self::compare_with_opcode(
+                    &i.1.1,
+                    str,
+                    &opcode,
+                ) {
                     idx_vec.push(i.0);
                 }
             }
