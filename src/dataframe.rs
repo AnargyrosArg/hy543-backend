@@ -133,7 +133,6 @@ pub mod dataframe {
             let starting_byte =
                 (total_bytes / n_workers as u64) * self.mpi_universe.world().rank() as u64;
 
-            println!("Total size: {}", total_bytes);
 
             f.seek(SeekFrom::Start(starting_byte)).unwrap();
 
@@ -141,7 +140,6 @@ pub mod dataframe {
             let mut buf = vec![];
             let n_read = reader.read_until(b'\n', &mut buf).unwrap();
 
-            println!("read {} bytes till newline", n_read);
             let mut buf: Vec<u8> = vec![0u8; (total_bytes / n_workers as u64) as usize - n_read];
             reader.read_exact(&mut buf).unwrap();
 
