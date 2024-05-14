@@ -60,8 +60,7 @@ fn communicator(universe: Universe) {
                 .to_string();
             len = s.len() as i32;
             let deserialized_graph: ExecGraph = serde_json::from_str(&s).unwrap();
-            let mut file = File::create("nodes.json").unwrap();
-            file.write_all(s.as_bytes()).unwrap();
+      
             deserialized_graph.print();
             break;
         }

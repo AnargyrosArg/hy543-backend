@@ -5,7 +5,7 @@ pub mod dataframe {
     use super::table::table::Table;
     use crate::execgraph::execgraph::{ExecGraph, OpNode, OperationType};
     use mpi::environment::Universe;
-    use mpi::traits::Communicator;
+    use mpi::traits::{Communicator, Group};
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
@@ -111,6 +111,15 @@ pub mod dataframe {
         // }
 
         pub fn read_from_csv(&mut self, filename: &str) {
+
+           let workers_vec = (1..self.mpi_universe.world().size()).collect::<Vec<_>>();
+            let workers_group = self.mpi_universe.world().group().include(&workers_vec[..]);
+            let workers = self
+                .mpi_universe
+                .world()
+                .split_by_subgroup(&workers_group)
+                .unwrap();
+
             let file: File = File::open(filename).unwrap();
 
             //create reader object
@@ -132,12 +141,12 @@ pub mod dataframe {
             }
             self.table = Table::new(fieldnames.len());
             self.field_indexes = fieldmap;
-            let n_workers = self.mpi_universe.world().size();
+            let n_workers = workers.size();
 
             let mut f = File::open(filename).unwrap();
             let total_bytes = f.metadata().unwrap().len();
             let starting_byte =
-                (total_bytes / n_workers as u64) * self.mpi_universe.world().rank() as u64;
+                (total_bytes / n_workers as u64) * workers.rank() as u64;
 
             f.seek(SeekFrom::Start(starting_byte)).unwrap();
 
