@@ -125,14 +125,19 @@ pub mod dataframe {
             for i in headers.iter() {
                 fieldnames.push(i.to_string());
             }
-
+            //construct fieldmap
+            let mut fieldmap: HashMap<String, usize> = HashMap::new();
+            for i in 0..fieldnames.len() {
+                fieldmap.insert(fieldnames[i].trim().to_owned(), i);
+            }
+            self.table = Table::new(fieldnames.len());
+            self.field_indexes = fieldmap;
             let n_workers = self.mpi_universe.world().size();
 
             let mut f = File::open(filename).unwrap();
             let total_bytes = f.metadata().unwrap().len();
             let starting_byte =
                 (total_bytes / n_workers as u64) * self.mpi_universe.world().rank() as u64;
-
 
             f.seek(SeekFrom::Start(starting_byte)).unwrap();
 
@@ -156,6 +161,7 @@ pub mod dataframe {
             let records_iter = rdr.records();
             for record in records_iter {
                 let entry: Vec<_> = record.unwrap().iter().map(|x| x.to_string()).collect();
+                println!("entry: {:?}", entry);
                 self.table.push(entry);
             }
         }
