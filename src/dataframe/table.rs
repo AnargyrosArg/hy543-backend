@@ -131,7 +131,7 @@ pub mod table {
             for j in 0..self.nfields {
                 new_data.push(Vec::new());
                 for i in idx_vec{
-                    let row = self.data[j].swap_remove(*i);
+                    let row = (*self.data[j].get(*i).unwrap()).clone();
                     new_data[j].push(row);
                 }   
                 
