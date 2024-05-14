@@ -170,7 +170,6 @@ pub mod dataframe {
             let records_iter = rdr.records();
             for record in records_iter {
                 let entry: Vec<_> = record.unwrap().iter().map(|x| x.to_string()).collect();
-                println!("entry: {:?}", entry);
                 self.table.push(entry);
             }
         }
