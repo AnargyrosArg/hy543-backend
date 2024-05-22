@@ -1,12 +1,18 @@
 use std::collections::HashMap;
 use std::fs::File;
+use std::process::exit;
 
+use aws_sdk_dynamodb::operation::create_table::CreateTableOutput;
+use aws_sdk_dynamodb::operation::put_item::PutItemInput;
+use aws_sdk_dynamodb::types::{
+    AttributeDefinition, AttributeValue, KeySchemaElement, KeyType, ProvisionedThroughput, ReturnValue, ScalarAttributeType
+};
 use dataframe::dataframe::Dataframe;
 use execgraph::execgraph::ExecGraph;
+use futures::executor::block_on;
 use mpi::collective::SystemOperation;
 use mpi::traits::Root;
 use mpi::{environment::Universe, traits::Communicator};
-
 mod dataframe;
 pub mod execgraph;
 
@@ -15,7 +21,8 @@ use std::net::{TcpListener, TcpStream};
 
 use gethostname::gethostname;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let universe: Universe = mpi::initialize().unwrap();
     let world: mpi::topology::SimpleCommunicator = universe.world();
     let rank: i32 = world.rank();
@@ -36,20 +43,18 @@ fn main() {
         0 => {
             communicator(universe);
         }
-        _ => {
-            worker(universe);
-        }
+        _ => worker(universe),
     }
 }
 
 fn communicator(universe: Universe) {
     loop {
         let mut len: i32 = 0;
-        let mut s:String = String::new();
+        let mut s: String = String::new();
         //receive graph from client
 
         let listener = TcpListener::bind("0.0.0.0:65000").unwrap();
-        println!("Communicator started at node: {:?}",gethostname());
+        println!("Communicator started at node: {:?}", gethostname());
         for stream in listener.incoming() {
             let mut stream = stream.unwrap();
 
@@ -60,11 +65,10 @@ fn communicator(universe: Universe) {
                 .to_string();
             len = s.len() as i32;
             let deserialized_graph: ExecGraph = serde_json::from_str(&s).unwrap();
-      
+
             deserialized_graph.print();
             break;
         }
-
 
         // Broadcast the length of the string
         universe.world().process_at_rank(0).broadcast_into(&mut len);
@@ -75,9 +79,12 @@ fn communicator(universe: Universe) {
         if universe.world().rank() == 0 {
             x_bytes.copy_from_slice(s.as_bytes());
         }
-        
+
         // Broadcast the JSON string
-        universe.world().process_at_rank(0).broadcast_into(&mut x_bytes);
+        universe
+            .world()
+            .process_at_rank(0)
+            .broadcast_into(&mut x_bytes);
 
         //gather result
         let mut numeric_result = 0 as usize;
@@ -90,7 +97,7 @@ fn communicator(universe: Universe) {
 
         println!("Reduced result: {}", numeric_result);
 
-        let client_addr ="large2:65001";
+        let client_addr = "0.0.0.0:65001";
         //Response to client
         let mut stream = TcpStream::connect(client_addr).unwrap();
         let num_string = numeric_result.to_string();
@@ -100,7 +107,13 @@ fn communicator(universe: Universe) {
 }
 
 fn worker(universe: Universe) {
-    let mut persisted_graphs: HashMap<usize, Dataframe> = HashMap::new();
+
+    //create a dynamoBD table for every worker
+    let table_name = "worker".to_string() + &universe.world().rank().to_string();
+    let future = create_table(table_name.as_str(), "id");
+    //block until dynamoDB responds
+    block_on(future).unwrap();
+
     loop {
         //barrier not required -> there should be an implicit barrier on graph broadcast -> remove when implemented
         // universe.world().barrier();
@@ -116,9 +129,8 @@ fn worker(universe: Universe) {
             .broadcast_into(&mut x_bytes);
 
         let x = String::from_utf8(x_bytes).unwrap();
-        // println!("Rank {} received value: {}.", universe.world().rank(), x);
 
-        // Read the JSON as an instance of graph struct.    
+        // Read the JSON as an instance of graph struct.
         let graph: ExecGraph = serde_json::from_str(&x).unwrap();
 
         //init dataframe
@@ -141,7 +153,101 @@ fn worker(universe: Universe) {
             .process_at_rank(0)
             .reduce_into(&mut numeric_result, SystemOperation::sum());
 
+        //save current graph state
         let id = graph.iter().last().unwrap().get_operation_id();
-        persisted_graphs.insert(id, dataframe);
+        let state_value = serde_json::to_string(&dataframe).expect("couldnt serialize state");
+        block_on(add_item(&table_name,id.to_string(),state_value)).unwrap();
+
     }
+}
+
+use aws_config::BehaviorVersion;
+use aws_sdk_dynamodb::{Client, Error};
+
+pub async fn create_table(table: &str, key: &str) -> Result<CreateTableOutput, Error> {
+    let config = aws_config::defaults(BehaviorVersion::latest())
+        .test_credentials()
+        .load()
+        .await;
+    let dynamodb_local_config = aws_sdk_dynamodb::config::Builder::from(&config)
+        // Override the endpoint in the config to use a local dynamodb server.
+        .endpoint_url(
+            // DynamoDB run locally uses port 8000 by default.
+            "http://localhost:8000",
+        )
+        .build();
+
+    let client = Client::from_conf(dynamodb_local_config);
+
+    let a_name: String = key.into();
+    let table_name: String = table.into();
+
+    let ad = AttributeDefinition::builder()
+        .attribute_name(&a_name)
+        .attribute_type(ScalarAttributeType::S)
+        .build()
+        .unwrap();
+
+    let ks = KeySchemaElement::builder()
+        .attribute_name(&a_name)
+        .key_type(KeyType::Hash)
+        .build()
+        .unwrap();
+
+    let pt = ProvisionedThroughput::builder()
+        .read_capacity_units(10)
+        .write_capacity_units(5)
+        .build()
+        .unwrap();
+
+    let create_table_response = client
+        .create_table()
+        .table_name(table_name)
+        .key_schema(ks)
+        .attribute_definitions(ad)
+        .provisioned_throughput(pt)
+        .send()
+        .await;
+
+    match create_table_response {
+        Ok(out) => {
+            println!("Added table {} with key {}", table, key);
+            Ok(out)
+        }
+        Err(e) => {
+            panic!("Error creating table;");
+        }
+    }
+}
+
+pub async fn add_item(table: &String,id:String ,value:String) -> Result<(), Error> {
+    let config = aws_config::defaults(BehaviorVersion::latest())
+        .test_credentials()
+        .load()
+        .await;
+    let dynamodb_local_config = aws_sdk_dynamodb::config::Builder::from(&config)
+        // Override the endpoint in the config to use a local dynamodb server.
+        .endpoint_url(
+            // DynamoDB run locally uses port 8000 by default.
+            "http://localhost:8000",
+        )
+        .build();
+
+    let client = Client::from_conf(dynamodb_local_config);
+
+    
+    let id_av = AttributeValue::S(id);
+    let value_av = AttributeValue::S(value);
+
+
+    let request = client
+        .put_item()
+        .return_values(ReturnValue::AllOld)
+        .table_name(table)
+        .item("id",id_av )
+        .item("val",value_av);
+
+    let _resp = request.send().await?;
+    
+    Ok(())
 }

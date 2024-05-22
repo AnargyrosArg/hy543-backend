@@ -1,4 +1,6 @@
 pub mod table {
+    use serde::{Deserialize, Serialize};
+
     pub enum FilterOpcodes {
         Equal,
         Greater,
@@ -6,7 +8,8 @@ pub mod table {
         Less,
         LessEqual,
     }
-
+    
+    #[derive(Serialize, Deserialize, Debug)]
     pub struct Table {
         data: Vec<Vec<(usize, String)>>,
         projections: Vec<bool>,

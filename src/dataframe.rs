@@ -1,19 +1,25 @@
+use mpi::environment::Universe;
+use serde::{Deserialize, Deserializer};
+
 pub mod table;
 
 pub mod dataframe {
-
     use super::table::table::Table;
     use crate::execgraph::execgraph::{ExecGraph, OpNode, OperationType};
     use mpi::environment::Universe;
     use mpi::traits::{Communicator, Group};
+    use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 
+
+    #[derive(Serialize)]
     pub struct Dataframe<'a> {
         table: Table,
         field_indexes: HashMap<String, usize>,
         result: usize,
+        #[serde(skip)]
         mpi_universe: &'a Universe,
     }
     impl<'a> Dataframe<'a> {
@@ -111,8 +117,7 @@ pub mod dataframe {
         // }
 
         pub fn read_from_csv(&mut self, filename: &str) {
-
-           let workers_vec = (1..self.mpi_universe.world().size()).collect::<Vec<_>>();
+            let workers_vec = (1..self.mpi_universe.world().size()).collect::<Vec<_>>();
             let workers_group = self.mpi_universe.world().group().include(&workers_vec[..]);
             let workers = self
                 .mpi_universe
@@ -145,8 +150,7 @@ pub mod dataframe {
 
             let mut f = File::open(filename).unwrap();
             let total_bytes = f.metadata().unwrap().len();
-            let starting_byte =
-                (total_bytes / n_workers as u64) * workers.rank() as u64;
+            let starting_byte = (total_bytes / n_workers as u64) * workers.rank() as u64;
 
             f.seek(SeekFrom::Start(starting_byte)).unwrap();
 
